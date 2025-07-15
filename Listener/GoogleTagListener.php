@@ -85,7 +85,7 @@ class GoogleTagListener implements EventSubscriberInterface
         $result = [
             'event' => 'view_item',
             'ecommerce' => [
-                'items' => $items,
+                'items' => [$items],
                 'value' => $items['price'],
                 'currency' => $currency?->getCode(),
             ]
