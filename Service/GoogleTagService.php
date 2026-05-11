@@ -523,7 +523,17 @@ class GoogleTagService
             default:
                 return null;
         }
-        return htmlspecialchars($pageEntity->setLocale($this->requestStack->getSession()->getLang()->getLocale())->getTitle());
+
+        if (null === $pageEntity) {
+            return null;
+        }
+
+        $lang = $this->requestStack->getSession()->getLang();
+        if (null === $lang) {
+            return null;
+        }
+
+        return htmlspecialchars($pageEntity->setLocale($lang->getLocale())->getTitle());
     }
 
     /**
