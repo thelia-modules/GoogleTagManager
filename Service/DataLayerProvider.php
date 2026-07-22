@@ -58,7 +58,9 @@ final readonly class DataLayerProvider
             $session->set(GoogleTagManager::GOOGLE_TAG_TRIGGER_LOGIN, null);
         }
 
-        if ('order-delivery' === $view) {
+        $view = $request?->attributes->get('_route', $request->query->get('_route', $request->request->get('_route')));
+
+        if ('checkout_delivery' === $view) {
             $cart = $session?->getSessionCart($this->eventDispatcher);
             $country = $this->taxEngine->getDeliveryCountry();
 
@@ -66,11 +68,14 @@ final readonly class DataLayerProvider
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getCheckOutData($cart?->getId(), $country));
         }
 
-        if ('order-placed' === $view
-            && $orderId = $request?->attributes->get('order_id', $request->query->get('order_id', $request->request->get('order_id')))) {
+        // Only on the /pay page for now. The placed order id is captured in session by
+        // GoogleTagListener::trackPurchase (the request carries no order_id here).
+        if ('checkout_pay' === $view
+            && null !== $orderId = $session?->get(GoogleTagManager::GOOGLE_TAG_PURCHASE)) {
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getPurchaseData((int) $orderId));
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getPaymentInfo((int) $orderId));
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getShippingInfo((int) $orderId));
+            $session->set(GoogleTagManager::GOOGLE_TAG_PURCHASE, null);
         }
 
         return $html;
@@ -80,7 +85,6 @@ final readonly class DataLayerProvider
     {
         $request = $this->requestStack->getCurrentRequest();
         $view = $request?->attributes->get('_view', $request->query->get('_view', $request->request->get('_view')));
-
         if (\in_array($view, ['category', 'brand', 'search', 'folder', 'content', 'page'], true)) {
             return $this->twig->render('@GoogleTagManagerModule/theme-hook/getItems.html.twig');
         }
