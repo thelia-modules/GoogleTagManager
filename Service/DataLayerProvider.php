@@ -19,20 +19,22 @@ use GoogleTagManager\GoogleTagManager;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Domain\Taxation\TaxEngine\TaxEngine;
+use Twig\Environment;
 
 /**
  * Decides which dataLayer events must be pushed for the current page (based on the
  * current `_view`), and produces the corresponding markup using {@see GtmTagRenderer}.
  * This holds the orchestration logic that used to live in the front hook.
  */
-class DataLayerProvider
+final readonly class DataLayerProvider
 {
     public function __construct(
-        private readonly GoogleTagService         $googleTagService,
-        private readonly GtmTagRenderer           $renderer,
-        private readonly TaxEngine                $taxEngine,
-        private readonly RequestStack             $requestStack,
-        private readonly EventDispatcherInterface $eventDispatcher,
+        private GoogleTagService         $googleTagService,
+        private GtmTagRenderer           $renderer,
+        private TaxEngine                $taxEngine,
+        private RequestStack             $requestStack,
+        private EventDispatcherInterface $eventDispatcher,
+        private Environment              $twig,
     ) {
     }
 
@@ -41,7 +43,6 @@ class DataLayerProvider
         $request = $this->requestStack->getCurrentRequest();
         $session = $request?->getSession();
         $view = $request?->attributes->get('_view', $request->query->get('_view', $request->request->get('_view')));
-
         $html = $this->renderer->dataLayerPush($this->googleTagService->getTheliaPageViewParameters());
 
         if (\in_array($view, ['category', 'brand', 'search'], true)) {
@@ -80,21 +81,19 @@ class DataLayerProvider
         $request = $this->requestStack->getCurrentRequest();
         $view = $request?->attributes->get('_view', $request->query->get('_view', $request->request->get('_view')));
 
-        $html = '';
-
-        if (\in_array($view, ['category', 'brand', 'search'], true)) {
-            $html .= $this->renderer->renderSelectItem();
+        if (\in_array($view, ['category', 'brand', 'search', 'folder', 'content', 'page'], true)) {
+            return $this->twig->render('@GoogleTagManagerModule/theme-hook/getItems.html.twig');
         }
-
-        return $html.$this->renderer->renderAddToCart();
+        return $this->twig->render('@GoogleTagManagerModule/theme-hook/addToCart.html.twig');
     }
 
     /**
      * Stores the viewed product id in session, consumed by GoogleTagListener::getViewItem
      * to resolve the [google_tag_view_item] ShortCode at response time.
      */
-    public function trackProduct(int|string|null $productId): void
+    public function trackProduct(int|string|null $productId): string
     {
         $this->requestStack->getCurrentRequest()?->getSession()?->set(GoogleTagManager::GOOGLE_TAG_VIEW_ITEM, $productId);
+        return '';
     }
 }
