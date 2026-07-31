@@ -6,7 +6,6 @@ namespace GoogleTagManager\Hook\Theme;
 
 use GoogleTagManager\Service\DataLayerProvider;
 use GoogleTagManager\Service\GtmConfig;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Core\Hook\Theme\ThemeHookInterface;
 use Twig\Environment;
 
@@ -14,7 +13,7 @@ final readonly class GoogleTagManagerThemeHook implements ThemeHookInterface
 {
     public function __construct(
         private Environment $twig,
-        private GTMConfig $config,
+        private GtmConfig $config,
         private DataLayerProvider $dataLayerProvider,
     ) {
     }
@@ -40,9 +39,11 @@ final readonly class GoogleTagManagerThemeHook implements ThemeHookInterface
 
         $productId = $parameters['product']['id'] ?? null;
         return match ($hookName) {
-            'layout.head.bottom' => $this->twig->render('@GoogleTagManagerModule/theme-hook/script.html.twig', [
-                'containerId' => $containerId
-            ]),
+            // The dataLayer pushes must come before the container script loads gtm.js.
+            'layout.head.bottom' => $this->dataLayerProvider->renderHead()
+                .$this->twig->render('@GoogleTagManagerModule/theme-hook/script.html.twig', [
+                    'containerId' => $containerId,
+                ]),
             'layout.body.top' => $this->twig->render('@GoogleTagManagerModule/theme-hook/noscript.html.twig', [
                 'containerId' => $containerId
             ]),

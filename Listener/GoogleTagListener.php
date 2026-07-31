@@ -49,7 +49,16 @@ class GoogleTagListener implements EventSubscriberInterface
      */
     public function trackPurchase(OrderEvent $event): void
     {
-        $this->requestStack->getSession()->set(
+        $request = $this->requestStack->getCurrentRequest();
+
+        // Tracking must never break the payment flow: ORDER_PAY can be dispatched outside a
+        // web context (CLI, payment callback), where RequestStack::getSession() would throw.
+        // getPlacedOrder() is safe here — Order::create either sets it or throws at priority 128.
+        if (null === $request || !$request->hasSession()) {
+            return;
+        }
+
+        $request->getSession()->set(
             GoogleTagManager::GOOGLE_TAG_PURCHASE,
             $event->getPlacedOrder()->getId()
         );

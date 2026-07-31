@@ -17,7 +17,6 @@ namespace GoogleTagManager\Twig;
 
 use GoogleTagManager\Service\DataLayerProvider;
 use GoogleTagManager\Service\GtmConfig;
-use GoogleTagManager\Service\GtmTagRenderer;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 

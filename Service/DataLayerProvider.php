@@ -85,10 +85,14 @@ final readonly class DataLayerProvider
     {
         $request = $this->requestStack->getCurrentRequest();
         $view = $request?->attributes->get('_view', $request->query->get('_view', $request->request->get('_view')));
+        $html = '';
+
         if (\in_array($view, ['category', 'brand', 'search', 'folder', 'content', 'page'], true)) {
-            return $this->twig->render('@GoogleTagManagerModule/theme-hook/getItems.html.twig');
+            $html .= $this->twig->render('@GoogleTagManagerModule/theme-hook/getItems.html.twig');
         }
-        return $this->twig->render('@GoogleTagManagerModule/theme-hook/addToCart.html.twig');
+
+        // Always loaded: a listing page may also carry an add-to-cart button.
+        return $html.$this->twig->render('@GoogleTagManagerModule/theme-hook/addToCart.html.twig');
     }
 
     /**
