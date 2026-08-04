@@ -27,6 +27,7 @@ class GoogleTagManager extends BaseModule
     public const GOOGLE_TAG_VIEW_ITEM = 'google_tag_view_item';
     public const GOOGLE_TAG_VIEW_LIST_ITEM = 'google_tag_view_list_item';
     public const GOOGLE_TAG_TRIGGER_LOGIN = 'google_tag_trigger_login';
+    public const GOOGLE_TAG_PURCHASE = 'google_tag_purchase';
 
     /**
      * @throws PropelException

@@ -17,23 +17,18 @@ namespace GoogleTagManager\Twig;
 
 use GoogleTagManager\Service\DataLayerProvider;
 use GoogleTagManager\Service\GtmConfig;
-use GoogleTagManager\Service\GtmTagRenderer;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
  * Exposes the GTM rendering to Twig templates. Call these functions in your front theme
  * (the module no longer relies on Thelia hooks):
- *   - {{ gtm_head() }}          in <head>
- *   - {{ gtm_body() }}          right after <body>
- *   - {{ gtm_js_init() }}       before </body>
  *   - {{ gtm_track_product(product.id) }}  in the product page template
  */
 class GoogleTagManagerExtension extends AbstractExtension
 {
     public function __construct(
         private readonly GtmConfig          $config,
-        private readonly GtmTagRenderer     $renderer,
         private readonly DataLayerProvider  $dataLayerProvider,
     ) {
     }
@@ -42,7 +37,6 @@ class GoogleTagManagerExtension extends AbstractExtension
     {
         return [
             new TwigFunction('gtm_head', [$this, 'head'], ['is_safe' => ['html']]),
-            new TwigFunction('gtm_body', [$this, 'body'], ['is_safe' => ['html']]),
             new TwigFunction('gtm_js_init', [$this, 'jsInit'], ['is_safe' => ['html']]),
             new TwigFunction('gtm_track_product', [$this, 'trackProduct'], ['is_safe' => ['html']]),
         ];
@@ -54,16 +48,7 @@ class GoogleTagManagerExtension extends AbstractExtension
             return '';
         }
 
-        return $this->dataLayerProvider->renderHead().$this->renderer->renderContainer($this->config->getContainerId());
-    }
-
-    public function body(): string
-    {
-        if (!$this->config->isEnabled()) {
-            return '';
-        }
-
-        return $this->renderer->renderNoscript($this->config->getContainerId());
+        return $this->dataLayerProvider->renderHead();
     }
 
     public function jsInit(): string

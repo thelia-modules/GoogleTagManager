@@ -81,7 +81,6 @@ class GoogleTagService
 
         $event = new GoogleTagPageViewEvent($result, $user, $view);
         $event = $this->dispatcher->dispatch($event);
-
         return json_encode($event->getResult(), JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
     }
 
@@ -366,7 +365,7 @@ class GoogleTagService
                 'payment_type' => $paymentType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
             ]
-        ], JSON_THROW_ON_ERROR);
+        ],  JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
     }
 
     /**

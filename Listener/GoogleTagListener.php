@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Core\Event\Customer\CustomerCreateOrUpdateEvent;
 use Thelia\Core\Event\Customer\CustomerLoginEvent;
 use Thelia\Core\Event\Loop\LoopExtendsParseResultsEvent;
+use Thelia\Core\Event\Order\OrderEvent;
 use Thelia\Core\Event\TheliaEvents;
 use Thelia\Model\CurrencyQuery;
 use Thelia\Model\Lang;
@@ -32,11 +33,35 @@ class GoogleTagListener implements EventSubscriberInterface
             GoogleTagManager::GOOGLE_TAG_VIEW_ITEM => ['getViewItem', 128],
             TheliaEvents::CUSTOMER_LOGIN => ['triggerLoginEvent', 128],
             TheliaEvents::CUSTOMER_CREATEACCOUNT => ['triggerRegisterEvent', 128],
+            // Runs after the core Order::create (priority 128) which sets the placed order.
+            TheliaEvents::ORDER_PAY => ['trackPurchase', 64],
             TheliaEvents::getLoopExtendsEvent(
                 TheliaEvents::LOOP_EXTENDS_PARSE_RESULTS,
                 'product'
             ) => ['trackProducts', 128]
         ];
+    }
+
+    /**
+     * Stores the placed order id in session, consumed by DataLayerProvider::renderHead
+     * on the confirmation page to push the purchase/payment/shipping dataLayer events.
+     * The Flexy checkout confirmation page carries no order_id in the request.
+     */
+    public function trackPurchase(OrderEvent $event): void
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        // Tracking must never break the payment flow: ORDER_PAY can be dispatched outside a
+        // web context (CLI, payment callback), where RequestStack::getSession() would throw.
+        // getPlacedOrder() is safe here — Order::create either sets it or throws at priority 128.
+        if (null === $request || !$request->hasSession()) {
+            return;
+        }
+
+        $request->getSession()->set(
+            GoogleTagManager::GOOGLE_TAG_PURCHASE,
+            $event->getPlacedOrder()->getId()
+        );
     }
 
     /**
