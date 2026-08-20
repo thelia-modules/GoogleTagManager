@@ -184,21 +184,22 @@ class GoogleTagService
         $product = ProductQuery::create()->findOneByRef($orderProduct->getProductRef());
         $brand = $product?->getBrand();
 
-        $productPrice = $orderProduct->getWasInPromo() ? $orderProduct->getPromoPrice() : $orderProduct->getPrice();
-
         $category = CategoryQuery::create()->findPk($product?->getDefaultCategoryId());
         $categories = $category ? $this->getCategories($category, $lang->getLocale(), []) : [];
 
-        if ($taxed && null !== $country) {
-            $productPrice += (float)$orderProduct->getOrderProductTaxes()->getFirst()?->getAmount();
-        }
+        // The unit price has to multiply back to the amount the line was invoiced,
+        // otherwise the items of a purchase do not add up to the value of the event.
+        // See OrderLineAmount: every tax of the line counts, and the line is totalled
+        // with the rounding rule its order was invoiced with.
+        $reportedQuantity = (float) ($quantity ?? $orderProduct->getQuantity());
+        $productPrice = OrderLineAmount::unitAmount($orderProduct, $taxed && null !== $country, $reportedQuantity);
 
         $item = [
             'item_id' => $product?->getId() ?? (int)$orderProduct->getProductRef(),
             'item_name' => htmlspecialchars($orderProduct->getTitle()),
             'item_brand' => htmlspecialchars(null !== $brand ? $brand->setLocale($lang->getLocale())->getTitle() : ConfigQuery::read('store_name')),
             'affiliation' => htmlspecialchars(ConfigQuery::read('store_name')),
-            'price' => round($productPrice, 2),
+            'price' => $productPrice,
             'currency' => $currency->getCode(),
             'quantity' => $quantity
         ];
