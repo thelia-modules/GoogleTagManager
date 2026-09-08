@@ -98,7 +98,9 @@ class GoogleTagListener implements EventSubscriberInterface
             return;
         }
 
-        $product = ProductQuery::create()->filterById($productId)->findOne();
+        // findPk answers from the Propel instance pool: the page that set the id in
+        // session has already hydrated the product.
+        $product = ProductQuery::create()->findPk($productId);
 
         /** @var Lang $lang */
         $lang = $session->get('thelia.current.lang') ?: LangQuery::create()->filterByByDefault(1)->findOne();
