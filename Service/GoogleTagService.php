@@ -238,7 +238,7 @@ class GoogleTagService
     /**
      * @throws PropelException
      */
-    public function getProductItems(array $productIds = null, $itemList = false): array
+    public function getProductItems(?array $productIds = null, $itemList = false): array
     {
         $session = $this->requestStack->getSession();
         $products = ProductQuery::create()->filterById($productIds)->find();
@@ -465,8 +465,9 @@ class GoogleTagService
 
         $items = [];
 
+        // Items report the unit price before tax; the taxed total stays on the event value.
         foreach ($products as $orderProduct) {
-            $items[] = $this->getOrderProductItem($orderProduct, $lang, $currency, $orderProduct->getQuantity(), false, true, $country);
+            $items[] = $this->getOrderProductItem($orderProduct, $lang, $currency, $orderProduct->getQuantity(), false, false, $country);
         }
 
         return $items;
@@ -486,7 +487,8 @@ class GoogleTagService
 
         $product = $cartItem->getProductSaleElements()->getProduct();
 
-        return $this->getProductItem($product, $lang, $currency, $cartItem->getProductSaleElements(), $cartItem->getQuantity(), false, true, $country);
+        // Items report the unit price before tax; the taxed total stays on the event value.
+        return $this->getProductItem($product, $lang, $currency, $cartItem->getProductSaleElements(), $cartItem->getQuantity(), false, false, $country);
     }
 
     protected function getCategories(Category $category, $locale, $categories)
