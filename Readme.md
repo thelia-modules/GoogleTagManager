@@ -64,7 +64,8 @@ the category path (`item_category`, `item_category2`...) and `item_variant` when
 
 `price` is the unit price before tax. Listing, product, cart and add to cart items round it to the cent;
 purchase items keep six decimals, so that price times quantity gives back the amount the line was invoiced.
-The `value` of an event is the taxed amount of the cart or of the order.
+The `value` of an event is the taxed amount of the cart or of the order, and, like the `tax` and `shipping`
+of the purchase, it is rounded to the cent.
 
 `quantity` is the quantity of the line: the cart line, the order line, or the quantity sent by the
 add to cart event.
