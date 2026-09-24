@@ -44,8 +44,7 @@ final readonly class DataLayerProvider
         $session = $request?->getSession();
         $view = $request?->attributes->get('_view', $request->query->get('_view', $request->request->get('_view')));
         $html = $this->renderer->dataLayerPush($this->googleTagService->getTheliaPageViewParameters());
-
-        if (\in_array($view, ['category', 'brand', 'search'], true)) {
+        if (\in_array($view, ['category', 'brand', 'search', 'view_all'], true)) {
             $html .= $this->renderer->shortCodePush(GoogleTagManager::GOOGLE_TAG_VIEW_LIST_ITEM);
         }
 
@@ -60,21 +59,28 @@ final readonly class DataLayerProvider
 
         $view = $request?->attributes->get('_route', $request->query->get('_route', $request->request->get('_route')));
 
-        if ('checkout_delivery' === $view) {
-            $cart = $session?->getSessionCart($this->eventDispatcher);
-            $country = $this->taxEngine->getDeliveryCountry();
+        $cart = $session?->getSessionCart($this->eventDispatcher);
+        $country = $this->taxEngine->getDeliveryCountry();
 
+        if ('checkout_cart' === $view) {
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getCartData($cart?->getId(), $country));
+        }
+
+        if ('checkout_delivery' === $view) {
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getCheckOutData($cart?->getId(), $country));
         }
 
-        // Only on the /pay page for now. The placed order id is captured in session by
-        // GoogleTagListener::trackPurchase (the request carries no order_id here).
-        if ('checkout_pay' === $view
+        if ('checkout_invoice' === $view) {
+            $html .= $this->renderer->dataLayerPush($this->googleTagService->getCheckOutData($cart?->getId(), $country, 'add_shipping_info'));
+        }
+
+        if ('checkout_payment' === $view) {
+            $html .= $this->renderer->dataLayerPush($this->googleTagService->getCheckOutData($cart?->getId(), $country, 'add_payment_info'));
+        }
+
+        if (('checkout_pay' === $view || 'checkout_confirm' === $view)
             && null !== $orderId = $session?->get(GoogleTagManager::GOOGLE_TAG_PURCHASE)) {
             $html .= $this->renderer->dataLayerPush($this->googleTagService->getPurchaseData((int) $orderId));
-            $html .= $this->renderer->dataLayerPush($this->googleTagService->getPaymentInfo((int) $orderId));
-            $html .= $this->renderer->dataLayerPush($this->googleTagService->getShippingInfo((int) $orderId));
             $session->set(GoogleTagManager::GOOGLE_TAG_PURCHASE, null);
         }
 
@@ -87,7 +93,7 @@ final readonly class DataLayerProvider
         $view = $request?->attributes->get('_view', $request->query->get('_view', $request->request->get('_view')));
         $html = '';
 
-        if (\in_array($view, ['category', 'brand', 'search', 'folder', 'content', 'page'], true)) {
+        if (\in_array($view, ['category', 'brand', 'search', 'folder', 'content', 'page', 'view_all'], true)) {
             $html .= $this->twig->render('@GoogleTagManagerModule/theme-hook/getItems.html.twig');
         }
 

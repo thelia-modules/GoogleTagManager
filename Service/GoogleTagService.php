@@ -309,7 +309,7 @@ class GoogleTagService
      * @throws PropelException
      * @throws \JsonException
      */
-    public function getCheckOutData(?int $cartId, $addressCountry): string
+    public function getCheckOutData(?int $cartId, Country $addressCountry, ?string $eventName = 'begin_checkout'): string
     {
         if (!$cartId || !$cart = CartQuery::create()->findPk($cartId)) {
             return json_encode([], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
@@ -325,7 +325,7 @@ class GoogleTagService
         }, iterator_to_array($cart->getCartItems()));
 
         return json_encode([
-            'event' => 'begin_checkout',
+            'event' => $eventName,
             'ecommerce' => [
                 'currency' => $cart->getCurrency()?->getCode(),
                 'value' => $cart->getTaxedAmount($addressCountry),
@@ -366,7 +366,7 @@ class GoogleTagService
                 'payment_type' => $paymentType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
             ]
-        ],  JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+        ], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
     }
 
     /**
