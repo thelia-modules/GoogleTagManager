@@ -238,7 +238,7 @@ class GoogleTagService
     /**
      * @throws PropelException
      */
-    public function getProductItems(array $productIds = null, $itemList = false): array
+    public function getProductItems(?array $productIds = null, $itemList = false): array
     {
         $session = $this->requestStack->getSession();
         $products = ProductQuery::create()->filterById($productIds)->find();
@@ -309,7 +309,7 @@ class GoogleTagService
      * @throws PropelException
      * @throws \JsonException
      */
-    public function getCheckOutData(?int $cartId, $addressCountry): string
+    public function getCheckOutData(?int $cartId, Country $addressCountry, ?string $eventName = 'begin_checkout'): string
     {
         if (!$cartId || !$cart = CartQuery::create()->findPk($cartId)) {
             return json_encode([], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
@@ -325,7 +325,7 @@ class GoogleTagService
         }, iterator_to_array($cart->getCartItems()));
 
         return json_encode([
-            'event' => 'begin_checkout',
+            'event' => $eventName,
             'ecommerce' => [
                 'currency' => $cart->getCurrency()?->getCode(),
                 'value' => $cart->getTaxedAmount($addressCountry),
@@ -366,7 +366,7 @@ class GoogleTagService
                 'payment_type' => $paymentType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
             ]
-        ],  JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+        ], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
     }
 
     /**
@@ -465,8 +465,9 @@ class GoogleTagService
 
         $items = [];
 
+        // Items report the unit price before tax; the taxed total stays on the event value.
         foreach ($products as $orderProduct) {
-            $items[] = $this->getOrderProductItem($orderProduct, $lang, $currency, $orderProduct->getQuantity(), false, true, $country);
+            $items[] = $this->getOrderProductItem($orderProduct, $lang, $currency, $orderProduct->getQuantity(), false, false, $country);
         }
 
         return $items;
@@ -486,7 +487,8 @@ class GoogleTagService
 
         $product = $cartItem->getProductSaleElements()->getProduct();
 
-        return $this->getProductItem($product, $lang, $currency, $cartItem->getProductSaleElements(), $cartItem->getQuantity(), false, true, $country);
+        // Items report the unit price before tax; the taxed total stays on the event value.
+        return $this->getProductItem($product, $lang, $currency, $cartItem->getProductSaleElements(), $cartItem->getQuantity(), false, false, $country);
     }
 
     protected function getCategories(Category $category, $locale, $categories)
