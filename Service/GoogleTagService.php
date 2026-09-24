@@ -299,7 +299,7 @@ class GoogleTagService
             'event' => 'view_cart',
             'ecommerce' => [
                 'currency' => $cart->getCurrency()?->getCode(),
-                'value' => $cart->getTaxedAmount($addressCountry),
+                'value' => self::amount($cart->getTaxedAmount($addressCountry)),
                 'items' => $items
             ]
         ], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
@@ -328,7 +328,7 @@ class GoogleTagService
             'event' => $eventName,
             'ecommerce' => [
                 'currency' => $cart->getCurrency()?->getCode(),
-                'value' => $cart->getTaxedAmount($addressCountry),
+                'value' => self::amount($cart->getTaxedAmount($addressCountry)),
                 'coupon' => $coupons,
                 'items' => $items
             ]
@@ -361,7 +361,7 @@ class GoogleTagService
             'event' => 'add_payment_info',
             'ecommerce' => [
                 'currency' => $currency?->getCode(),
-                'value' => $order->getTotalAmount($tax, false),
+                'value' => self::amount($order->getTotalAmount($tax, false)),
                 'coupon' => $coupons,
                 'payment_type' => $paymentType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
@@ -395,7 +395,7 @@ class GoogleTagService
             'event' => 'add_shipping_info',
             'ecommerce' => [
                 'currency' => $currency?->getCode(),
-                'value' => $order->getTotalAmount($tax, false),
+                'value' => self::amount($order->getTotalAmount($tax, false)),
                 'coupon' => $coupons,
                 'shipping_tier' => $shippingType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
@@ -430,9 +430,9 @@ class GoogleTagService
             'event' => 'purchase',
             'ecommerce' => [
                 'transaction_id' => $order->getRef(),
-                'value' => $order->getTotalAmount($tax, false),
-                'tax' => $tax,
-                'shipping' => $order->getPostage(),
+                'value' => self::amount($order->getTotalAmount($tax, false)),
+                'tax' => self::amount($tax),
+                'shipping' => self::amount($order->getPostage()),
                 'currency' => $currency?->getCode(),
                 'affiliation' => htmlspecialchars(ConfigQuery::read('store_name')),
                 'items' => $this->getOrderProductItems($order, $invoiceAddress->getCountry())
@@ -489,6 +489,16 @@ class GoogleTagService
 
         // Items report the unit price before tax; the taxed total stays on the event value.
         return $this->getProductItem($product, $lang, $currency, $cartItem->getProductSaleElements(), $cartItem->getQuantity(), false, false, $country);
+    }
+
+    /**
+     * A monetary amount of an event (value, tax, shipping), rounded to the cent: the core
+     * sums amounts as floats, which leaves a tail of decimals (11.950000000000001), and
+     * reads the postage as the raw DECIMAL string ("0.000000").
+     */
+    protected static function amount(float|int|string|null $amount): float
+    {
+        return round((float) $amount, 2);
     }
 
     protected function getCategories(Category $category, $locale, $categories)
@@ -591,11 +601,12 @@ class GoogleTagService
         switch ($view) {
             case 'cart':
             case 'order-delivery':
-                return $this->requestStack->getSession()->getSessionCart($this->dispatcher)?->getTaxedAmount($this->taxEngine->getDeliveryCountry());
+                $cart = $this->requestStack->getSession()->getSessionCart($this->dispatcher);
+                return null === $cart ? null : self::amount($cart->getTaxedAmount($this->taxEngine->getDeliveryCountry()));
             case 'order-placed':
                 $currentRequest = $this->requestStack->getCurrentRequest();
                 $order = OrderQuery::create()->findPk($currentRequest?->attributes->get('order_id', $currentRequest->query->get('order_id', $currentRequest->request->get('order_id'))));
-                return $order->getTotalAmount($tax, false) - $tax;
+                return self::amount($order->getTotalAmount($tax, false) - $tax);
             default:
                 return null;
         }

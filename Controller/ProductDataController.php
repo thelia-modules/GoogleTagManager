@@ -92,7 +92,7 @@ class ProductDataController extends BaseFrontController
 
         $result = [
             'items' => [$item],
-            'value' => ($price - $discount) * $quantity,
+            'value' => round(($price - $discount) * $quantity, 2),
             'currency' => $item['currency']
         ];
 
