@@ -27,11 +27,15 @@ class ProductDataController extends BaseFrontController
     #[Route('/getItem', name: 'get_item', methods: ['POST'])]
     public function getProductDataWithUrl(Request $request, GoogleTagService $googleTagService): JsonResponse
     {
-        $requestContent = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        $productUrl = parse_url($requestContent['productUrl']);
+        $requestContent = json_decode($request->getContent(), true);
+
+        if (!\is_array($requestContent)) {
+            return new JsonResponse(json_encode([], JSON_THROW_ON_ERROR));
+        }
+        $productUrl = \is_string($requestContent['productUrl'] ?? null) ? parse_url($requestContent['productUrl']) : false;
         $result = [];
 
-        if (!isset($productUrl['path'])) {
+        if (!\is_array($productUrl) || !isset($productUrl['path'])) {
             return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
         }
 
@@ -49,8 +53,7 @@ class ProductDataController extends BaseFrontController
         $currency = $session->get('thelia.current.currency') ?: CurrencyQuery::create()->filterByByDefault(1)->findOne();
 
 
-        if (null !== $rewriteUrl) {
-            $product = ProductQuery::create()->findPk($rewriteUrl->getViewId());
+        if (null !== $rewriteUrl && null !== $product = ProductQuery::create()->findPk($rewriteUrl->getViewId())) {
             $result = $googleTagService->getProductItem($product, $lang, $currency);
         }
 
@@ -64,7 +67,11 @@ class ProductDataController extends BaseFrontController
     #[Route('/getCartItem', name: 'get_cart_item', methods: ['POST'])]
     public function getCartItem(Request $request, GoogleTagService $googleTagService): JsonResponse
     {
-        $requestContent = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $requestContent = json_decode($request->getContent(), true);
+
+        if (!\is_array($requestContent)) {
+            return new JsonResponse(json_encode([], JSON_THROW_ON_ERROR));
+        }
         $result = [];
 
         if (!isset($requestContent['pseId'], $requestContent['quantity'])) {
@@ -75,7 +82,10 @@ class ProductDataController extends BaseFrontController
         $quantity = $requestContent['quantity'];
 
         $pse = ProductSaleElementsQuery::create()->findPk($pseId);
-        $product = $pse->getProduct();
+
+        if (null === $pse || null === $product = $pse->getProduct()) {
+            return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
+        }
 
         $session = $request->getSession();
 
