@@ -44,7 +44,7 @@ class ConfigurationController extends BaseAdminController
             $vform = $this->validateForm($form);
             $data = $vform->getData();
 
-            GoogleTagManager::setConfigValue(GoogleTagManager::GOOGLE_TAG_MANAGER_GMT_ID_CONFIG_KEY, $data['gtmId']);
+            GoogleTagManager::setConfigValue(GoogleTagManager::GOOGLE_TAG_MANAGER_GMT_ID_CONFIG_KEY, trim((string) $data['gtmId']));
         } catch (Exception $e) {
             $this->setupFormErrorContext(
                 Translator::getInstance()->trans("Syntax error"),
@@ -54,6 +54,6 @@ class ConfigurationController extends BaseAdminController
             );
         }
 
-        return $this->generateSuccessRedirect($form);
+        return $this->generateRedirectFromRoute('admin.module.configure', [], ['module_code' => 'GoogleTagManager']);
     }
 }
