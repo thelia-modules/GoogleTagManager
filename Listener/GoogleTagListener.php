@@ -43,7 +43,7 @@ class GoogleTagListener implements EventSubscriberInterface
     }
 
     /**
-     * Stores the placed order id in session, consumed by DataLayerProvider::renderHead
+     * Stores the placed order id in session, consumed by DataLayerProvider::renderCheckoutEvents
      * on the confirmation page to push the purchase/payment/shipping dataLayer events.
      * The Flexy checkout confirmation page carries no order_id in the request.
      */

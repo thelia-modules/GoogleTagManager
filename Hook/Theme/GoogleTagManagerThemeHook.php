@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace GoogleTagManager\Hook\Theme;
 
-use GoogleTagManager\Service\DataLayerProvider;
+use GoogleTagManager\Service\DataLayerProviderInterface;
 use GoogleTagManager\Service\GtmConfig;
 use Thelia\Core\Hook\Theme\ThemeHookInterface;
 use Twig\Environment;
@@ -14,7 +14,7 @@ final readonly class GoogleTagManagerThemeHook implements ThemeHookInterface
     public function __construct(
         private Environment $twig,
         private GtmConfig $config,
-        private DataLayerProvider $dataLayerProvider,
+        private DataLayerProviderInterface $dataLayerProvider,
     ) {
     }
 

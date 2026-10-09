@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 namespace GoogleTagManager\Twig;
 
-use GoogleTagManager\Service\DataLayerProvider;
+use GoogleTagManager\Service\DataLayerProviderInterface;
 use GoogleTagManager\Service\GtmConfig;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -29,7 +29,7 @@ class GoogleTagManagerExtension extends AbstractExtension
 {
     public function __construct(
         private readonly GtmConfig          $config,
-        private readonly DataLayerProvider  $dataLayerProvider,
+        private readonly DataLayerProviderInterface $dataLayerProvider,
     ) {
     }
 

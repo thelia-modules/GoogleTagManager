@@ -12,6 +12,8 @@
 
 namespace GoogleTagManager;
 
+use GoogleTagManager\Service\DataLayerProvider;
+use GoogleTagManager\Service\DataLayerProviderInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Propel\Runtime\Exception\PropelException;
 use ShortCode\ShortCode;
@@ -52,5 +54,8 @@ class GoogleTagManager extends BaseModule
             ])
             ->autowire(true)
             ->autoconfigure(true);
+
+        // Explicit, so that a project decorating the interface does not depend on the single-implementation autowiring.
+        $services->alias(DataLayerProviderInterface::class, DataLayerProvider::class);
     }
 }

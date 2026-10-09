@@ -26,7 +26,7 @@ use Twig\Environment;
  * current `_view`), and produces the corresponding markup using {@see GtmTagRenderer}.
  * This holds the orchestration logic that used to live in the front hook.
  */
-final readonly class DataLayerProvider
+final readonly class DataLayerProvider implements DataLayerProviderInterface
 {
     public function __construct(
         private GoogleTagService         $googleTagService,
@@ -39,6 +39,11 @@ final readonly class DataLayerProvider
     }
 
     public function renderHead(): string
+    {
+        return $this->renderPageEvents().$this->renderCheckoutEvents();
+    }
+
+    public function renderPageEvents(): string
     {
         $request = $this->requestStack->getCurrentRequest();
         $session = $request?->getSession();
@@ -57,6 +62,14 @@ final readonly class DataLayerProvider
             $session->set(GoogleTagManager::GOOGLE_TAG_TRIGGER_LOGIN, null);
         }
 
+        return $html;
+    }
+
+    public function renderCheckoutEvents(): string
+    {
+        $request = $this->requestStack->getCurrentRequest();
+        $session = $request?->getSession();
+        $html = '';
         $view = $request?->attributes->get('_route', $request->query->get('_route', $request->request->get('_route')));
 
         $cart = $session?->getSessionCart($this->eventDispatcher);
