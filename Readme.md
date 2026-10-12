@@ -153,6 +153,94 @@ Three things to know about this setup:
 Check the wiring on the compiled container: `php Thelia debug:container 'GoogleTagManager\Service\GoogleTagService'`
 must list your class, with a `container.decorator` tag.
 
+### Changing when the checkout events are pushed
+
+The events of the checkout (`view_cart`, `begin_checkout`, `add_shipping_info`, `add_payment_info`, `purchase`) are
+pushed on the route that carries them (see Events). A shop whose checkout has other steps, or whose analytics expect
+them at other moments, decorates `GoogleTagManager\Service\DataLayerProviderInterface`: `renderHead()` is
+`renderPageEvents()` (`thelia_page_view`, the list and product placeholders, the login event) followed by
+`renderCheckoutEvents()`, so a decorator replaces the second and leaves the first to the module.
+
+The example pushes `view_cart` and `begin_checkout` together on the delivery step, as a shop whose cart page does not
+count as a checkout step would want (it pushes nothing on the cart page), and leaves every other event to the module:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tracking;
+
+use GoogleTagManager\Service\DataLayerProviderInterface;
+use GoogleTagManager\Service\GoogleTagService;
+use GoogleTagManager\Service\GtmTagRenderer;
+use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
+use Symfony\Component\DependencyInjection\Attribute\AutowireDecorated;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Thelia\Domain\Taxation\TaxEngine\TaxEngine;
+
+#[AsDecorator(decorates: DataLayerProviderInterface::class, onInvalid: ContainerInterface::IGNORE_ON_INVALID_REFERENCE)]
+final readonly class DeliveryStepDataLayerProvider implements DataLayerProviderInterface
+{
+    public function __construct(
+        #[AutowireDecorated]
+        private DataLayerProviderInterface $inner,
+        private GoogleTagService $googleTagService,
+        private GtmTagRenderer $renderer,
+        private TaxEngine $taxEngine,
+        private RequestStack $requestStack,
+        private EventDispatcherInterface $eventDispatcher,
+    ) {
+    }
+
+    public function renderHead(): string
+    {
+        return $this->renderPageEvents().$this->renderCheckoutEvents();
+    }
+
+    public function renderPageEvents(): string
+    {
+        return $this->inner->renderPageEvents();
+    }
+
+    public function renderCheckoutEvents(): string
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        $route = $request?->attributes->get('_route');
+
+        if ('checkout_cart' === $route) {
+            return '';
+        }
+
+        if ('checkout_delivery' !== $route) {
+            return $this->inner->renderCheckoutEvents();
+        }
+
+        $cartId = $request->getSession()->getSessionCart($this->eventDispatcher)->getId();
+        $country = $this->taxEngine->getDeliveryCountry();
+
+        return $this->renderer->dataLayerPush($this->googleTagService->getCartData($cartId, $country))
+            .$this->renderer->dataLayerPush($this->googleTagService->getCheckOutData($cartId, $country));
+    }
+
+    public function renderJsInit(): string
+    {
+        return $this->inner->renderJsInit();
+    }
+
+    public function trackProduct(int|string|null $productId): string
+    {
+        return $this->inner->trackProduct($productId);
+    }
+}
+```
+
+Read what a push needs before it is rendered: the module empties the session key of the order placed
+(`google_tag_purchase`) when it pushes `purchase`, so a decorator that wants the order has to read it first.
+
 ### Themes without theme hooks
 
 If your theme does not declare those hook points, the same rendering is available as Twig functions
