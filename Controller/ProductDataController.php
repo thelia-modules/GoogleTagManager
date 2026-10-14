@@ -9,11 +9,14 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Thelia\Controller\Front\BaseFrontController;
 use Thelia\Core\HttpFoundation\JsonResponse;
+use Thelia\Domain\Sale\ReservedSaleVisibility;
 use Thelia\Model\Base\CurrencyQuery;
 use Thelia\Model\Base\RewritingUrlQuery;
 use Thelia\Model\Currency;
 use Thelia\Model\Lang;
 use Thelia\Model\LangQuery;
+use Thelia\Model\Map\ProductTableMap;
+use Thelia\Model\Product;
 use Thelia\Model\ProductQuery;
 use Thelia\Model\ProductSaleElementsQuery;
 
@@ -25,13 +28,17 @@ class ProductDataController extends BaseFrontController
      * @throws PropelException
      */
     #[Route('/getItem', name: 'get_item', methods: ['POST'])]
-    public function getProductDataWithUrl(Request $request, GoogleTagService $googleTagService): JsonResponse
+    public function getProductDataWithUrl(Request $request, GoogleTagService $googleTagService, ?ReservedSaleVisibility $reservedSaleVisibility = null): JsonResponse
     {
-        $requestContent = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        $productUrl = parse_url($requestContent['productUrl']);
+        $requestContent = json_decode($request->getContent(), true);
+
+        if (!\is_array($requestContent)) {
+            return new JsonResponse(json_encode([], JSON_THROW_ON_ERROR));
+        }
+        $productUrl = \is_string($requestContent['productUrl'] ?? null) ? parse_url($requestContent['productUrl']) : false;
         $result = [];
 
-        if (!isset($productUrl['path'])) {
+        if (!\is_array($productUrl) || !isset($productUrl['path'])) {
             return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
         }
 
@@ -49,8 +56,7 @@ class ProductDataController extends BaseFrontController
         $currency = $session->get('thelia.current.currency') ?: CurrencyQuery::create()->filterByByDefault(1)->findOne();
 
 
-        if (null !== $rewriteUrl) {
-            $product = ProductQuery::create()->findPk($rewriteUrl->getViewId());
+        if (null !== $rewriteUrl && null !== $product = $this->findVisibleProduct((int) $rewriteUrl->getViewId(), $reservedSaleVisibility)) {
             $result = $googleTagService->getProductItem($product, $lang, $currency);
         }
 
@@ -62,9 +68,13 @@ class ProductDataController extends BaseFrontController
      * @throws JsonException
      */
     #[Route('/getCartItem', name: 'get_cart_item', methods: ['POST'])]
-    public function getCartItem(Request $request, GoogleTagService $googleTagService): JsonResponse
+    public function getCartItem(Request $request, GoogleTagService $googleTagService, ?ReservedSaleVisibility $reservedSaleVisibility = null): JsonResponse
     {
-        $requestContent = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $requestContent = json_decode($request->getContent(), true);
+
+        if (!\is_array($requestContent)) {
+            return new JsonResponse(json_encode([], JSON_THROW_ON_ERROR));
+        }
         $result = [];
 
         if (!isset($requestContent['pseId'], $requestContent['quantity'])) {
@@ -75,7 +85,10 @@ class ProductDataController extends BaseFrontController
         $quantity = $requestContent['quantity'];
 
         $pse = ProductSaleElementsQuery::create()->findPk($pseId);
-        $product = $pse->getProduct();
+
+        if (null === $pse || null === $product = $this->findVisibleProduct((int) $pse->getProductId(), $reservedSaleVisibility)) {
+            return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
+        }
 
         $session = $request->getSession();
 
@@ -97,5 +110,20 @@ class ProductDataController extends BaseFrontController
         ];
 
         return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * These routes are public: a product the shop does not show (offline, or hidden by a
+     * reserved sale the visitor is not entitled to) is answered as an unknown product.
+     */
+    private function findVisibleProduct(int $productId, ?ReservedSaleVisibility $reservedSaleVisibility): ?Product
+    {
+        $query = ProductQuery::create()
+            ->filterById($productId)
+            ->filterByVisible(1);
+
+        $reservedSaleVisibility?->applyTo($query, ProductTableMap::COL_ID);
+
+        return $query->findOne();
     }
 }

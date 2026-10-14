@@ -14,6 +14,7 @@ namespace GoogleTagManager\Form;
 
 use GoogleTagManager\GoogleTagManager;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Validator\Constraints\Regex;
 use Thelia\Core\Translation\Translator;
 use Thelia\Form\BaseForm;
 
@@ -39,6 +40,12 @@ class ConfigurationForm extends BaseForm
             TextType::class,
             array(
                 'data'  => $value,
+                // Optional: an empty id switches the tags off on the front.
+                'required' => false,
+                // The id is printed in a JavaScript string and in a URL: letters, digits and dashes only (GTM-XXXXXXX).
+                'constraints' => [
+                    new Regex(pattern: '/^[A-Za-z0-9-]*$/'),
+                ],
                 'label' => Translator::getInstance()->trans("Google Tag Manager Id", [], GoogleTagManager::DOMAIN_NAME),
                 'label_attr' => array(
                     'for' => "gtmId"
