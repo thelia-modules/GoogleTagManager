@@ -9,11 +9,14 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Thelia\Controller\Front\BaseFrontController;
 use Thelia\Core\HttpFoundation\JsonResponse;
+use Thelia\Domain\Sale\ReservedSaleVisibility;
 use Thelia\Model\Base\CurrencyQuery;
 use Thelia\Model\Base\RewritingUrlQuery;
 use Thelia\Model\Currency;
 use Thelia\Model\Lang;
 use Thelia\Model\LangQuery;
+use Thelia\Model\Map\ProductTableMap;
+use Thelia\Model\Product;
 use Thelia\Model\ProductQuery;
 use Thelia\Model\ProductSaleElementsQuery;
 
@@ -25,7 +28,7 @@ class ProductDataController extends BaseFrontController
      * @throws PropelException
      */
     #[Route('/getItem', name: 'get_item', methods: ['POST'])]
-    public function getProductDataWithUrl(Request $request, GoogleTagService $googleTagService): JsonResponse
+    public function getProductDataWithUrl(Request $request, GoogleTagService $googleTagService, ?ReservedSaleVisibility $reservedSaleVisibility = null): JsonResponse
     {
         $requestContent = json_decode($request->getContent(), true);
 
@@ -53,7 +56,7 @@ class ProductDataController extends BaseFrontController
         $currency = $session->get('thelia.current.currency') ?: CurrencyQuery::create()->filterByByDefault(1)->findOne();
 
 
-        if (null !== $rewriteUrl && null !== $product = ProductQuery::create()->findPk($rewriteUrl->getViewId())) {
+        if (null !== $rewriteUrl && null !== $product = $this->findVisibleProduct((int) $rewriteUrl->getViewId(), $reservedSaleVisibility)) {
             $result = $googleTagService->getProductItem($product, $lang, $currency);
         }
 
@@ -65,7 +68,7 @@ class ProductDataController extends BaseFrontController
      * @throws JsonException
      */
     #[Route('/getCartItem', name: 'get_cart_item', methods: ['POST'])]
-    public function getCartItem(Request $request, GoogleTagService $googleTagService): JsonResponse
+    public function getCartItem(Request $request, GoogleTagService $googleTagService, ?ReservedSaleVisibility $reservedSaleVisibility = null): JsonResponse
     {
         $requestContent = json_decode($request->getContent(), true);
 
@@ -83,7 +86,7 @@ class ProductDataController extends BaseFrontController
 
         $pse = ProductSaleElementsQuery::create()->findPk($pseId);
 
-        if (null === $pse || null === $product = $pse->getProduct()) {
+        if (null === $pse || null === $product = $this->findVisibleProduct((int) $pse->getProductId(), $reservedSaleVisibility)) {
             return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
         }
 
@@ -107,5 +110,20 @@ class ProductDataController extends BaseFrontController
         ];
 
         return new JsonResponse(json_encode($result, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * These routes are public: a product the shop does not show (offline, or hidden by a
+     * reserved sale the visitor is not entitled to) is answered as an unknown product.
+     */
+    private function findVisibleProduct(int $productId, ?ReservedSaleVisibility $reservedSaleVisibility): ?Product
+    {
+        $query = ProductQuery::create()
+            ->filterById($productId)
+            ->filterByVisible(1);
+
+        $reservedSaleVisibility?->applyTo($query, ProductTableMap::COL_ID);
+
+        return $query->findOne();
     }
 }
