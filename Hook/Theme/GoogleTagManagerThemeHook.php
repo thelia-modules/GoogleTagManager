@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace GoogleTagManager\Hook\Theme;
 
+use ConsentManager\Contract\ScriptGateInterface;
 use GoogleTagManager\Consent\ConsentServiceDeclarer;
 use GoogleTagManager\Service\DataLayerProviderInterface;
 use GoogleTagManager\Service\GtmConfig;
@@ -13,8 +14,9 @@ use Twig\Environment;
 final readonly class GoogleTagManagerThemeHook implements ThemeHookInterface
 {
     /**
-     * @param object|null $consentGate the ScriptGate of the ConsentManager module, wired by
-     *                                 GoogleTagManager::configureServices() only while that module is active
+     * @param object|null $consentGate the ScriptGateInterface published by the ConsentManager module, wired by
+     *                                 GoogleTagManager::configureServices() only while that module is active;
+     *                                 typed loosely so that this class loads without that module
      */
     public function __construct(
         private Environment $twig,
@@ -64,7 +66,8 @@ final readonly class GoogleTagManagerThemeHook implements ThemeHookInterface
 
     private function gated(string $html): string
     {
-        if (null === $this->consentGate || !method_exists($this->consentGate, 'gate')) {
+        // instanceof on a class that is not installed is false, without loading anything.
+        if (!$this->consentGate instanceof ScriptGateInterface) {
             return $html;
         }
 
