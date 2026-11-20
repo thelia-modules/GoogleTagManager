@@ -12,6 +12,7 @@
 
 namespace GoogleTagManager;
 
+use GoogleTagManager\Hook\Theme\GoogleTagManagerThemeHook;
 use GoogleTagManager\Service\DataLayerProvider;
 use GoogleTagManager\Service\DataLayerProviderInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
@@ -19,6 +20,8 @@ use Propel\Runtime\Exception\PropelException;
 use ShortCode\ShortCode;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Thelia\Module\BaseModule;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 class GoogleTagManager extends BaseModule
 {
@@ -57,5 +60,10 @@ class GoogleTagManager extends BaseModule
 
         // Explicit, so that a project decorating the interface does not depend on the single-implementation autowiring.
         $services->alias(DataLayerProviderInterface::class, DataLayerProvider::class);
+
+        // Under the ConsentManager module, the container waits for the visitor's consent. The service id only
+        // exists while that module is active; without it the argument is null and the tag loads as before.
+        $services->get(GoogleTagManagerThemeHook::class)
+            ->arg('$consentGate', service('consent_manager.script_gate')->nullOnInvalid());
     }
 }

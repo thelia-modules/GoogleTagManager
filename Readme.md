@@ -39,6 +39,16 @@ The `flexy` front-office theme declares all four out of the box:
 {{ theme_hook('product.bottom', {product: product}) }}
 ```
 
+## Consent
+
+When the ConsentManager module is active, the container waits for the visitor's consent:
+the module declares a `google_tag_manager` service in the `analytics` category (the merchant
+can move it to another one), the container script is held back until that category is
+accepted, and the `<noscript>` fallback is not rendered. The dataLayer pushes are still
+written in the page: they only queue data, and the container reads them once it loads.
+
+Without ConsentManager, nothing changes: the container loads on every page.
+
 `product.bottom` must receive the product, otherwise the `view_item` event is silently skipped.
 
 ## Events
