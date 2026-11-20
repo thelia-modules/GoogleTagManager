@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace GoogleTagManager\Tests\Unit\Hook\Theme;
 
+use ConsentManager\Contract\ScriptGateInterface;
 use GoogleTagManager\Consent\ConsentServiceDeclarer;
 use GoogleTagManager\Hook\Theme\GoogleTagManagerThemeHook;
 use GoogleTagManager\Service\DataLayerProviderInterface;
@@ -38,7 +39,11 @@ final class GoogleTagManagerThemeHookTest extends TestCase
 
     public function testUnderAConsentManagerTheContainerAndItsFallbackGoThroughTheGate(): void
     {
-        $gate = new class {
+        if (!interface_exists(ScriptGateInterface::class)) {
+            self::markTestSkipped('The ConsentManager module is not installed: no gate to wire.');
+        }
+
+        $gate = new class implements ScriptGateInterface {
             /** @var list<string> */
             public array $services = [];
 

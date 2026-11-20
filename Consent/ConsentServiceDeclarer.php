@@ -51,6 +51,7 @@ final readonly class ConsentServiceDeclarer
             privacyUrl: 'https://policies.google.com/privacy',
             description: 'Loads the measurement and advertising tags configured in the Google Tag Manager container.',
             translationDomain: GoogleTagManager::DOMAIN_NAME,
+            duration: 'Up to 2 years',
         ));
     }
 }

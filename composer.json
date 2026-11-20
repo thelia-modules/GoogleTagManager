@@ -6,6 +6,9 @@
     "thelia/installer": "^1.6",
     "thelia/short-code-module": "^3.0"
   },
+  "suggest": {
+    "thelia/consent-manager-module": "Holds the container back until the visitor consents to its category"
+  },
   "extra": {
     "installer-name": "GoogleTagManager"
   }
