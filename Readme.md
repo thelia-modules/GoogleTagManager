@@ -64,8 +64,11 @@ the category path (`item_category`, `item_category2`...) and `item_variant` when
 
 `price` is the unit price before tax. Listing, product, cart and add to cart items round it to the cent;
 purchase items keep six decimals, so that price times quantity gives back the amount the line was invoiced.
-The `value` of an event is the taxed amount of the cart or of the order, and, like the `tax` and `shipping`
-of the purchase, it is rounded to the cent.
+The `value` of an event is the amount of the cart or of the order before tax and before shipping, discounts
+included, as GA4 expects it: without a discount, it is the sum of `price` times `quantity` of the items. Like the
+`tax` and `shipping` of the purchase, it is rounded to the cent.
+
+`item_id` is always a string.
 
 `quantity` is the quantity of the line: the cart line, the order line, or the quantity sent by the
 add to cart event.
@@ -152,6 +155,46 @@ Three things to know about this setup:
 
 Check the wiring on the compiled container: `php Thelia debug:container 'GoogleTagManager\Service\GoogleTagService'`
 must list your class, with a `container.decorator` tag.
+
+### Customising an item
+
+Every item the module builds (listings, product page, cart, checkout steps, add to cart, purchase) goes through
+a `GoogleTagManager\Events\GoogleTagItemEvent` before it is pushed. A listener reads the item with `getItem()`,
+returns the completed item with `setItem()`, and finds the context in `getProduct()` (null only for an order line
+whose product has been deleted), `getOrderProduct()` (set for the items of an order, null otherwise) and
+`getLocale()`.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace MyModule\EventListener;
+
+use GoogleTagManager\Events\GoogleTagItemEvent;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
+final class GoogleTagItemListener implements EventSubscriberInterface
+{
+    public static function getSubscribedEvents(): array
+    {
+        return [GoogleTagItemEvent::class => 'onItem'];
+    }
+
+    public function onItem(GoogleTagItemEvent $event): void
+    {
+        $subtitle = $event->getProduct()?->setLocale($event->getLocale())->getChapo();
+        if (null === $subtitle || '' === $subtitle) {
+            return;
+        }
+
+        $item = $event->getItem();
+        $item['item_name'] .= ' - '.htmlspecialchars($subtitle);
+
+        $event->setItem($item);
+    }
+}
+```
 
 ### Changing when the checkout events are pushed
 
