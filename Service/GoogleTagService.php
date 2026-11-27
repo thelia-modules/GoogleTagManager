@@ -2,6 +2,7 @@
 
 namespace GoogleTagManager\Service;
 
+use GoogleTagManager\Events\GoogleTagItemEvent;
 use GoogleTagManager\Events\GoogleTagPageViewEvent;
 use Propel\Runtime\Exception\PropelException;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -166,7 +167,7 @@ class GoogleTagService
             }
         }
 
-        return $item;
+        return $this->dispatchItem($item, $product, null, $lang->getLocale());
     }
 
     /**
@@ -195,7 +196,7 @@ class GoogleTagService
         $productPrice = OrderLineAmount::unitAmount($orderProduct, $taxed && null !== $country, $reportedQuantity);
 
         $item = [
-            'item_id' => $product?->getId() ?? (int)$orderProduct->getProductRef(),
+            'item_id' => (string)($product?->getId() ?? $orderProduct->getProductRef()),
             'item_name' => htmlspecialchars($orderProduct->getTitle()),
             'item_brand' => htmlspecialchars(null !== $brand ? $brand->setLocale($lang->getLocale())->getTitle() : ConfigQuery::read('store_name')),
             'affiliation' => htmlspecialchars(ConfigQuery::read('store_name')),
@@ -232,7 +233,7 @@ class GoogleTagService
             $item['item_variant'] = $attributes;
         }
 
-        return $item;
+        return $this->dispatchItem($item, $product, $orderProduct, $lang->getLocale());
     }
 
     /**
@@ -299,7 +300,7 @@ class GoogleTagService
             'event' => 'view_cart',
             'ecommerce' => [
                 'currency' => $cart->getCurrency()?->getCode(),
-                'value' => self::amount($cart->getTaxedAmount($addressCountry)),
+                'value' => self::amount($cart->getTotalAmount(true, $addressCountry)),
                 'items' => $items
             ]
         ], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
@@ -328,7 +329,7 @@ class GoogleTagService
             'event' => $eventName,
             'ecommerce' => [
                 'currency' => $cart->getCurrency()?->getCode(),
-                'value' => self::amount($cart->getTaxedAmount($addressCountry)),
+                'value' => self::amount($cart->getTotalAmount(true, $addressCountry)),
                 'coupon' => $coupons,
                 'items' => $items
             ]
@@ -356,12 +357,13 @@ class GoogleTagService
         $coupons = implode(',', $session->getConsumedCoupons());
 
         $paymentType = $order->getPaymentModuleInstance()->getCode();
+        $value = self::amount($order->getTotalAmount($tax, false) - $tax);
 
         return json_encode([
             'event' => 'add_payment_info',
             'ecommerce' => [
                 'currency' => $currency?->getCode(),
-                'value' => self::amount($order->getTotalAmount($tax, false)),
+                'value' => $value,
                 'coupon' => $coupons,
                 'payment_type' => $paymentType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
@@ -390,12 +392,13 @@ class GoogleTagService
         $coupons = implode(',', $session->getConsumedCoupons());
 
         $shippingType = $order->getDeliveryModuleInstance()->getCode();
+        $value = self::amount($order->getTotalAmount($tax, false) - $tax);
 
         return json_encode([
             'event' => 'add_shipping_info',
             'ecommerce' => [
                 'currency' => $currency?->getCode(),
-                'value' => self::amount($order->getTotalAmount($tax, false)),
+                'value' => $value,
                 'coupon' => $coupons,
                 'shipping_tier' => $shippingType,
                 'items' => $this->getOrderProductItems($order, $order->getOrderAddressRelatedByInvoiceOrderAddressId()->getCountry())
@@ -426,11 +429,14 @@ class GoogleTagService
             (empty($invoiceAddress->getAddress2()) ? '' : ' ' . $invoiceAddress->getAddress2()) .
             (empty($invoiceAddress->getAddress3()) ? '' : ' ' . $invoiceAddress->getAddress3());
 
+        // The value is the order before tax and before postage; $tax is filled by this call.
+        $value = self::amount($order->getTotalAmount($tax, false) - $tax);
+
         return json_encode([
             'event' => 'purchase',
             'ecommerce' => [
                 'transaction_id' => $order->getRef(),
-                'value' => self::amount($order->getTotalAmount($tax, false)),
+                'value' => $value,
                 'tax' => self::amount($tax),
                 'shipping' => self::amount($order->getPostage()),
                 'currency' => $currency?->getCode(),
@@ -465,7 +471,7 @@ class GoogleTagService
 
         $items = [];
 
-        // Items report the unit price before tax; the taxed total stays on the event value.
+        // Items report the unit price before tax, and so does the event value (GA4: the sum of price times quantity).
         foreach ($products as $orderProduct) {
             $items[] = $this->getOrderProductItem($orderProduct, $lang, $currency, $orderProduct->getQuantity(), false, false, $country);
         }
@@ -487,8 +493,13 @@ class GoogleTagService
 
         $product = $cartItem->getProductSaleElements()->getProduct();
 
-        // Items report the unit price before tax; the taxed total stays on the event value.
+        // Items report the unit price before tax, and so does the event value (GA4: the sum of price times quantity).
         return $this->getProductItem($product, $lang, $currency, $cartItem->getProductSaleElements(), $cartItem->getQuantity(), false, false, $country);
+    }
+
+    protected function dispatchItem(array $item, ?Product $product, ?OrderProduct $orderProduct, string $locale): array
+    {
+        return $this->dispatcher->dispatch(new GoogleTagItemEvent($item, $product, $orderProduct, $locale))->getItem();
     }
 
     /**
