@@ -1,0 +1,8 @@
+# ConsentManager is optional (composer "suggest"): GoogleTagManager only uses its classes behind an
+# instanceof check or from a listener that ConsentManager itself dispatches, so a shop without it
+# never loads them. The CI analysis runs without the module installed.
+parameters:
+    ignoreErrors:
+        -
+            message: '#ConsentManager\\#'
+            reportUnmatched: false
